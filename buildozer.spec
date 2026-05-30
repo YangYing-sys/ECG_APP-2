@@ -20,7 +20,7 @@ version = 1.0.0
 
 # (list) Application requirements
 # 固定 numpy 为稳定的 v1.26.4 避开底层 C++ 报错
-requirements = python3,kivy==2.3.0,numpy==v1.26.4,pyserial,pyjnius
+requirements = python3,kivy,numpy==v1.26.4,pyserial,pyjnius
 
 # (list) Supported orientations (屏幕朝向：推荐竖屏) 
 orientation = portrait
