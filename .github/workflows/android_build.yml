@@ -73,13 +73,12 @@ jobs:
           which buildozer
           buildozer --version
 
-      # Step 7: 清理旧缓存并开始执行 Buildozer 打包编译
+     # Step 7: 清理旧缓存并开始执行 Buildozer 打包编译
       - name: Run Buildozer Debug (Build APK)
         run: |
-          # 确保临时编译生成的缓存是完全干净的
           rm -rf .buildozer/
-          # 开始打包 (第一次运行预计耗时 10~20 分钟下载 SDK 与 NDK)
-          buildozer android debug
+          # 加上 yes 管道符，强行自动同意所有由 Android SDK 弹出的许可协议
+          yes | buildozer android debug
 
       # Step 8: 将最终生成的 APK 上传至 GitHub artifacts(产物)，方便直接下载
       - name: Upload APK Artifact
