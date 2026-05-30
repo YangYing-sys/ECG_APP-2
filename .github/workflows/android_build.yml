@@ -7,16 +7,12 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:  # 允许在 Actions 页面手动点击触发打包
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_API: 33
-      ANDROID_MIN_API: 21
-      ANDROID_NDK: 25b
-      ANDROID_BUILD_TOOLS: 33.0.2
-
+    
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
@@ -36,22 +32,32 @@ jobs:
             build-essential \
             libsqlite3-dev \
             wget \
-            curl
+            curl \
+            cmake \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config
 
-      - name: Install Cython (matching buildozer requirements)
-        run: pip3 install cython
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          # 安装新版 buildozer 和 cython
+          pip3 install --upgrade buildozer cython virtualenv
 
-      - name: Install Buildozer and dependencies
-        run: pip3 install --upgrade buildozer
+      - name: Fix directory issue (Ensure p4a exists before clean)
+        run: |
+          # 规避某些 buildozer 版本 clean 时找不到目录报错的问题
+          mkdir -p .buildozer/android/platform/python-for-android
 
-      - name: Build APK - Clean first
+      - name: Clean Buildozer environment
         run: buildozer android clean
 
-      - name: Update android platforms and dependencies
-        run: buildozer android update
+      - name: Update Android platform and dependencies
+        run: buildozer -v android update
 
-      - name: Build APK - Debug
-        run: buildozer android debug
+      - name: Build APK debug
+        run: buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v3
