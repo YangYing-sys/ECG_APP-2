@@ -48,24 +48,41 @@ class CSVDataManager:
             pass
 
     def get_android_public_folder(self):
-        """获取手机存储，将文件存放到手机的 ‘Download / 心电数据’ 文件夹内"""
+        """获取手机存储。带防闪退保护机制"""
+        folder_path = ""
         if platform == 'android':
-            # 请求安卓读写权限
-            from android.permissions import request_permissions, Permission
-            request_permissions([Permission.WRITE_EXTERNAL_STORAGE, Permission.READ_EXTERNAL_STORAGE])
+            try:
+                # 1. 申请安卓读写权限 + 蓝牙核心权限
+                from android.permissions import request_permissions, Permission
+                request_permissions([
+                    Permission.WRITE_EXTERNAL_STORAGE, 
+                    Permission.READ_EXTERNAL_STORAGE,
+                    Permission.BLUETOOTH_SCAN,
+                    Permission.BLUETOOTH_CONNECT
+                ])
+            except Exception:
+                pass
 
-            # 使用 jnius 调用安卓底层 API 获取 Download 文件夹
-            from jnius import autoclass
-            Environment = autoclass('android.os.Environment')
-            base_path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath()
-            folder_path = os.path.join(base_path, '心电数据记录')
+            try:
+                # 2. 尝试获取设备的 Download 文件夹
+                from jnius import autoclass
+                Environment = autoclass('android.os.Environment')
+                base_path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath()
+                folder_path = os.path.join(base_path, '心电数据记录')
+                
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path, exist_ok=True)
+            except Exception as e:
+                # 3. 【防闪退救命稻草】
+                # 如果用户还没点“允许”，或者安卓13禁止了直接写公共目录
+                # 我们就退回到 APP 专属的安全缓存区（这个区不需要弹窗权限绝对能写）
+                from kivy.app import App
+                folder_path = App.get_running_app().user_data_dir
         else:
-            # 如果在电脑上运行，就存在代码旁边的文件夹里
+            # 电脑上运行的情况
             folder_path = os.path.join(os.getcwd(), '心电数据记录')
-
-        # 如果文件夹不存在就创建
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path, exist_ok=True)
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path, exist_ok=True)
 
         return folder_path
 
