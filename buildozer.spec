@@ -1,65 +1,63 @@
-[app] 
+[app]
 
-# (str) Application title (应用名称) 
-title = ECG Warning App
+# (str) 你的 App 名字
+title = AI ECG Monitor
 
-# (str) Package name (包名) 
-package.name = ecgmonitor
+# (str) 包名（小写，建议用这个名，不容易冲突）
+package.name = aiecgmonitor
 
-# (str) Package domain (needed for android packaging) (域名) 
-package.domain = org.yangying
+# (str) 组织名
+package.domain = org.ecg
 
-# (str) Source code directory where main.py resides (源码目录) 
-source.dir = . 
+# (str) 源代码所在目录
+source.dir = .
 
-# (list) Source files to include (包含的文件类型，确保包含字体和 csv 等) 
-source.include_exts = py,png,jpg,kv,atlas,ttf,csv
+# (list) 包含的文件后缀 (必须包含 ttf，因为你代码里用了中文字体和表情包字体)
+source.include_exts = py,png,jpg,kv,atlas,ttf
 
-# (str) Application versioning
-version = 1.0.0
+# (list) 你的代码里 import 的所有库（最关键的一行）
+# 包括了：python3, kivy, numpy, pyserial(名写为serial), pyjnius(用于安卓底层调用)
+requirements = python3,kivy==2.3.0,numpy,pyserial,pyjnius
 
-# (list) Application requirements
-# 固定 numpy 为稳定的 v1.26.4 避开底层 C++ 报错
-requirements = python3,kivy,numpy==v1.26.4,pyserial,pyjnius
-
-# (list) Supported orientations (屏幕朝向：推荐竖屏) 
+# (str) 屏幕方向
 orientation = portrait
 
-# --------------------------------------------- 
-# Android 专有详细配置
-# --------------------------------------------- 
+# ----------------------------------
+# Android 配置
+# ----------------------------------
 
-# (list) Permissions (显式请求底层权限：蓝牙、定位、读写手机存储) 
-android.permissions = android.permission.BLUETOOTH, android.permission.BLUETOOTH_ADMIN, android.permission.BLUETOOTH_CONNECT, android.permission.BLUETOOTH_SCAN, android.permission.ACCESS_FINE_LOCATION, android.permission.ACCESS_COARSE_LOCATION, android.permission.WRITE_EXTERNAL_STORAGE, android.permission.READ_EXTERNAL_STORAGE
-
-# (int) Target Android API (目标运行 API，保持 33) 
-android.api = 33
-
-# (bool) Automatically accept SDK license agreements
+# (bool) 是否接受 SDK 协议 (GitHub 打包必填 True)
 android.accept_sdk_license = True
 
-# (int) Minimum API your APK will support. 
-android.minapi = 24
+# (int) 目标安卓 API 级别
+android.api = 33
 
-# (str) Android NDK version to use 
-android.ndk = 25b
+# (int) 最低支持安卓版本
+android.minapi = 21
 
-# (list) The Android architectures to build for (支持 64位 真机) 
+# (list) 你的项目申请的权限（根据你的代码：存CSV数据 + 串口通信/蓝牙）
+# 包含了：读写存储、互联网、蓝牙、精确定位（安卓蓝牙搜寻必须）
+android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET, BLUETOOTH, BLUETOOTH_ADMIN, ACCESS_FINE_LOCATION
+
+# (list) 包含的服务（如果有） - 无
+
+# (str) 安卓架构 (建议选 arm64-v8a 最适配现代手机，构建也快)
 android.archs = arm64-v8a
 
-# (bool) Enable Android logcat (调试日志输出) 
-android.logcat = True
+# (bool) 允许跳过更新
+android.skip_update = False
 
-# 注释掉自定义 entrypoint，让系统默认寻找 main.py (最稳妥的做法)
-# android.entrypoint = main 
+# (str) 这里的设置可以防止某些串口库报错
+android.meta_data = com.google.android.gms.version=@integer/google_play_services_version
 
-# --------------------------------------------- 
-# 构建选项
-# --------------------------------------------- 
-[buildozer] 
+# ----------------------------------
+# Buildozer 运行配置
+# ----------------------------------
 
-# (int) Log level (0 = error only, 1 = info, 2 = debug and error) 
+[buildozer]
+
+# 日志级别
 log_level = 2
 
-# (int) Display warning if buildozer is run as root (0 = false, 1 = true) 
-warn_on_root = 1
+# 警告级别
+warn_on_root = 0
