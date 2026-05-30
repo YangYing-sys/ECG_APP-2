@@ -40,6 +40,9 @@ android.permissions = android.permission.BLUETOOTH, android.permission.BLUETOOTH
 # (int) Target Android API (目标运行 API，保持 33 / 34)
 android.api = 33
 
+# (bool) Automatically accept SDK license agreements
+android.accept_sdk_license = True
+
 # (int) Minimum API your APK will support.
 android.minapi = 21
 
