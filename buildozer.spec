@@ -24,7 +24,7 @@ version = 1.0.0
 # 2. 你的代码用了 android.permissions，所以必须加 android
 # 3. 你的代码顶部用了 serial，所以必须有 pyserial
 # 4. 你的代码用了 jnius，所以必须有 pyjnius
-requirements = python3,kivy,numpy==1.26.4,pyserial,pyjnius,android
+requirements = python3,kivy,numpy==v1.26.4,pyserial,pyjnius,android
 
 # 屏幕方向
 orientation = portrait
