@@ -1,40 +1,60 @@
-name: Build APK
+name: Build APK with Buildozer
 
 on:
   push:
     branches:
-      - main  # 主分支名称，必要时修改成 master
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_API: 33
+      ANDROID_MIN_API: 21
+      ANDROID_NDK: 25b
+      ANDROID_BUILD_TOOLS: 33.0.2
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            python3-setuptools \
+            openjdk-11-jdk \
+            git \
+            zip \
+            unzip \
+            libssl-dev \
+            libffi-dev \
+            build-essential \
+            libsqlite3-dev \
+            wget \
+            curl
 
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-pip python3-setuptools python3-wheel python3-virtualenv \
-          git openjdk-11-jdk zip unzip \
-          build-essential libncurses-dev libffi-dev libssl-dev libsqlite3-dev
-        pip install --upgrade pip
-        pip install buildozer cython
+      - name: Install Cython (matching buildozer requirements)
+        run: pip3 install cython
 
-    - name: Clean and build APK
-      run: |
-        buildozer android clean
-        buildozer android debug
+      - name: Install Buildozer and dependencies
+        run: pip3 install --upgrade buildozer
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: myapp-debug-apk
-        path: bin/*.apk
+      - name: Build APK - Clean first
+        run: buildozer android clean
+
+      - name: Update android platforms and dependencies
+        run: buildozer android update
+
+      - name: Build APK - Debug
+        run: buildozer android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug-apk
+          path: bin/*.apk
