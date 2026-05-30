@@ -28,10 +28,9 @@ class CSVDataManager:
     def __init__(self):
         self.last_save_time = 0
         self.save_folder = self.get_android_public_folder()
-        self.clean_7days_old_files()  # 启动时清理7天前的垃圾文件
+        self.clean_7days_old_files()
 
     def save_waveform(self, clean_ecg_value):
-        """实时记录‘干净’的波形数值到 CSV"""
         filepath = os.path.join(self.save_folder, f"ECG_Waveform_{datetime.now().strftime('%Y-%m-%d')}.csv")
         file_exists = os.path.isfile(filepath)
 
@@ -39,83 +38,60 @@ class CSVDataManager:
             with open(filepath, mode='a', newline='') as f:
                 writer = csv.writer(f)
                 if not file_exists:
-                    writer.writerow(['Time', 'Voltage'])  # 表头
-
-                # 记录时间戳和滤波后的值
+                    writer.writerow(['Time', 'Voltage'])
                 time_str = datetime.now().strftime('%H:%M:%S.%f')[:-3]
                 writer.writerow([time_str, clean_ecg_value])
         except:
             pass
 
     def get_android_public_folder(self):
-        """获取手机存储，将文件存放到手机的 ‘Download / 心电数据’ 文件夹内"""
+        # 修复权限闪退
         if platform == 'android':
-            # 请求安卓读写权限
-            from android.permissions import request_permissions, Permission
-            request_permissions([Permission.WRITE_EXTERNAL_STORAGE, Permission.READ_EXTERNAL_STORAGE])
-
-            # 使用 jnius 调用安卓底层 API 获取 Download 文件夹
-            from jnius import autoclass
-            Environment = autoclass('android.os.Environment')
-            base_path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath()
-            folder_path = os.path.join(base_path, '心电数据记录')
+            app = App.get_running_app()
+            if app:
+                folder_path = os.path.join(app.user_data_dir, '心电数据记录')
+            else:
+                folder_path = os.path.join(os.getcwd(), '心电数据记录')
         else:
-            # 如果在电脑上运行，就存在代码旁边的文件夹里
             folder_path = os.path.join(os.getcwd(), '心电数据记录')
-
-        # 如果文件夹不存在就创建
         if not os.path.exists(folder_path):
             os.makedirs(folder_path, exist_ok=True)
-
         return folder_path
 
     def get_today_filename(self):
-        """获取今天专属的 CSV 文件路径"""
         today_str = datetime.now().strftime('%Y-%m-%d')
         filename = f"ECG_Log_{today_str}.csv"
         return os.path.join(self.save_folder, filename)
 
     def save_data(self, bpm, hrv, rhythm):
-        """保存数据，依然做 5 秒限流保护手机运存"""
         current_time = time.time()
-        # 限流：如果是正常心律，每5秒存一次；如果是异常（AFib等），立刻存！
         if current_time - self.last_save_time < 5.0 and rhythm == "Normal":
             return
-
         self.last_save_time = current_time
         filepath = self.get_today_filename()
-
-        # 检查文件是否是新创建的，如果是就需要写表头
         file_exists = os.path.isfile(filepath)
 
         try:
-            # mode='a' 表示在文件末尾追加 (Append)
             with open(filepath, mode='a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 if not file_exists:
-                    # 写入表头 (utf-8-sig 保证 Excel 打开不会乱码！)
                     writer.writerow(['记录时间', '心率 (BPM)', 'RR波动差/HRV (ms)', '心律状态'])
-
                 time_str = datetime.now().strftime('%H:%M:%S')
                 writer.writerow([time_str, bpm, hrv, rhythm])
         except Exception as e:
             print("CSV 保存失败:", e)
 
     def clean_7days_old_files(self):
-        """扫描文件夹，删除 7 天前的文件"""
         try:
             now = datetime.now()
             for filename in os.listdir(self.save_folder):
                 if filename.startswith("ECG_Log_") and filename.endswith(".csv"):
-                    # 从文件名中提取出日期 (比如 ECG_Log_2026-04-05.csv -> 2026-04-05)
                     date_str = filename.replace("ECG_Log_", "").replace(".csv", "")
                     try:
                         file_date = datetime.strptime(date_str, '%Y-%m-%d')
-                        # 如果文件的日期距离今天超过 7 天
                         if (now - file_date).days > 7:
                             file_to_del = os.path.join(self.save_folder, filename)
                             os.remove(file_to_del)
-                            print(f"已清理过期文件: {filename}")
                     except ValueError:
                         pass
         except Exception as e:
@@ -158,7 +134,7 @@ class RichLogBox(Label):
 
 
 # ==========================================
-# 1. 硬件线程 (包含安卓HC-05蓝牙原生支持)
+# 1. 硬件线程
 # ==========================================
 class HardwareThread(threading.Thread):
     def __init__(self, data_callback, status_callback):
@@ -168,14 +144,23 @@ class HardwareThread(threading.Thread):
         self.running = True
 
     def run(self):
-        if platform == 'android':
-            self.run_bluetooth_mode()
-        else:
-            self.run_serial_mode()
+        try:
+            if platform == 'android':
+                self.run_bluetooth_mode()
+            else:
+                self.run_serial_mode()
+        except:
+            pass
+        finally:
+            if platform == 'android':
+                try:
+                    import jnius
+                    jnius.detach()
+                except:
+                    pass
 
     def run_bluetooth_mode(self):
-        """ 专门给手机 APP 连蓝牙模块（HC-05）的方法 """
-        self.status_callback("【蓝牙寻找】寻找配对的 HC-05 设备...")
+        self.status_callback("【蓝牙寻找】寻找配ジン设备...")
         try:
             from jnius import autoclass
             BluetoothAdapter = autoclass('android.bluetooth.BluetoothAdapter')
@@ -183,46 +168,40 @@ class HardwareThread(threading.Thread):
             adapter = BluetoothAdapter.getDefaultAdapter()
 
             if adapter is None or not adapter.isEnabled():
-                self.status_callback("【错误】蓝牙未开启，请先在手机设置中打开蓝牙！")
+                self.status_callback("【错误】蓝牙未开启，请先打开蓝牙！")
                 return
 
             paired_devices = adapter.getBondedDevices().toArray()
             hc05_device = None
 
-            # 优先寻找名字里带 HC-05 的设备
             for device in paired_devices:
                 name = device.getName()
                 if name and ("HC-05" in name or "HC05" in name or "JDY" in name):
                     hc05_device = device
                     break
 
-            # 如果没找到带特定名字的，自动回退到第一个绑定的设备
             if not hc05_device and len(paired_devices) > 0:
                 hc05_device = paired_devices[0]
 
             if not hc05_device:
-                self.status_callback("【错误】未找到已配对的蓝牙设备，请前往手机设置配对！")
+                self.status_callback("【错误】未找到外设，请重新配对！")
                 return
 
             self.status_callback(f"【蓝牙】正在连接: {hc05_device.getName()}...")
-            # 蓝牙串口服务标准 UUID (SPP)
             uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
             socket = hc05_device.createRfcommSocketToServiceRecord(uuid)
             socket.connect()
 
             input_stream = socket.getInputStream()
-            self.status_callback("【硬件链路】HC-05蓝牙连接成功！开始接收数据...")
+            self.status_callback("【硬件链路】连接成功！开始接收数据...")
 
             buffer = ""
             while self.running:
-                # 阻塞读取输入流，CPU消耗极低
                 byte_val = input_stream.read()
                 if byte_val == -1:
-                    break  # 流断开了
-
+                    break
                 ch = chr(byte_val)
                 buffer += ch
-
                 if ch == '\n':
                     self.parse_and_emit(buffer.strip())
                     buffer = ""
@@ -234,18 +213,15 @@ class HardwareThread(threading.Thread):
         self.status_callback("【探测中】正在寻找 USB 链路...")
         ports = list(serial.tools.list_ports.comports())
         if not ports:
-            self.status_callback("【错误】未检测到蓝牙设备，请检查是否已连接！")#【错误】未检测到串口设备，请检查 CH340 驱动！
+            self.status_callback("【错误】未检测到设备，请检查是否已连接！")
             return
 
         port_name = ports[0].device
         try:
-            # 提高串口读取的鲁棒性
             ser = serial.Serial(port_name, 115200, timeout=0.05)
-            # 开局先清空一次缓冲区
             ser.reset_input_buffer()
 
             while self.running:
-                # 贪婪读取机制：如果缓冲区堆积了太多数据，瞬间丢弃旧数据，直接抓最新的！
                 if ser.in_waiting > 500:
                     ser.reset_input_buffer()
 
@@ -261,19 +237,16 @@ class HardwareThread(threading.Thread):
             self.status_callback(f"【链路中断】: {str(e)}")
 
     def parse_and_emit(self, line):
-        """ 解析新的单片机多协议格式： ADC:4026 | ECG:67.4 | BPM:0 | RR:0 | HRV:0 | PVC """
         try:
-            # 1. 正则提取
             m_ecg = re.search(r'ECG:([-+]?\d*\.?\d+)', line)
             m_bpm = re.search(r'BPM:(\d+)', line)
             m_hrv = re.search(r'HRV:(\d+)', line)
 
-            # 2. 提取数值
             ecg_val = float(m_ecg.group(1)) if m_ecg else 0.0
             bpm_val = int(m_bpm.group(1)) if m_bpm else 0
             hrv_val = int(m_hrv.group(1)) if m_hrv else 0
 
-            # 3. 实时状态判定 (支持新版 C 代码协议的尾部字符串)
+            # 依旧用你硬件里的字符串来赋值
             rhythm_str = "Wait"
             if "Normal" in line:
                 rhythm_str = "Normal"
@@ -284,17 +257,14 @@ class HardwareThread(threading.Thread):
             elif "Wait" in line or "Invalid" in line:
                 rhythm_str = "Wait"
 
-            # 4. 同步推送机制向 UI 通知更新
             self.data_callback(ecg_val, bpm_val, hrv_val, rhythm_str)
 
-            # 5. 只有真正有数值时才录入 CSV，防止日志被 Wait 刷屏
             if bpm_val > 0 and rhythm_str != "Wait":
                 app = App.get_running_app()
                 if hasattr(app, 'csv_manager'):
                     app.csv_manager.save_data(bpm_val, hrv_val, rhythm_str)
 
         except Exception as e:
-            # 静默处理通讯过程中的残缺行
             pass
 
     def stop(self):
@@ -302,7 +272,7 @@ class HardwareThread(threading.Thread):
 
 
 # ==========================================
-# 2. 精密 ECG 绘图 Widget (保持原始你的代码不变)
+# 2. 精密 ECG 绘图 Widget
 # ==========================================
 from kivy.uix.floatlayout import FloatLayout
 
@@ -389,31 +359,19 @@ class ECGPlotWidget(FloatLayout):
         self.plot_rect = (plot_x, plot_y, plot_w, plot_h)
 
     def push_data(self, value):
-        """优化后的滤波算法：显著降低增益，抑制溢出噪声"""
         try:
             raw = float(value)
 
-            # 1. 极速导出初始化
             if not hasattr(self, 'init_flag') or not self.init_flag:
                 self.lpf = raw
                 self.hpf = 0.0
                 self.last_raw = raw
                 self.init_flag = True
 
-            # 2. 【基线漂移过滤】系数调至 0.92，让波形更稳地停留在0刻度线
             self.hpf = 0.92 * (self.hpf + raw - self.last_raw)
             self.last_raw = raw
-
-            # 3. 【软件低通平滑】增强平滑度，吸收 50Hz 工频噪点
-            # 0.1 的权重会让波形线条更细、更圆润，不会出现毛刺团
             self.lpf = self.lpf * 0.9 + self.hpf * 0.1
-
-            # 4. 【核心改动：增益调整】
-            # 将原来的 18.0 降为 1.5 到 3.0 之间。
-            # 如果波形还是满屏，就改小（如 1.0）；如果波形太小，就改大（如 4.0）。
             final_value = self.lpf * 2.5
-
-            # 5. 安全限幅 (防止撞击上下边界)
             final_value = max(-55, min(55, final_value))
 
             self.ecg_buffer[self.ptr] = final_value
@@ -453,15 +411,17 @@ class ECGPlotWidget(FloatLayout):
 
 
 # ==========================================
-# 3. 主应用 App (保持原始你的代码不变)
+# 3. 主应用 App
 # ==========================================
 class ECGApp(App):
     def build(self):
         self.title = "AI辅助心电预警系统 "
 
+        # 【核心拦截1】：开局默认全部为空载"Wait"，绝对不设为Normal
         self.current_bpm = 0
         self.current_hrv = 0
-        self.current_rhythm = "Normal"
+        self.current_rhythm = "Wait"
+
         self.diag_status = 'IDLE'
         self.prep_countdown = 0
         self.valid_data_ticks = 0
@@ -471,7 +431,7 @@ class ECGApp(App):
 
         root = BoxLayout(orientation='vertical', padding=15, spacing=12)
 
-        # ====== 顶部信息 ======
+        # ====== 顶部 ======
         top_row = BoxLayout(size_hint_y=0.15, spacing=15)
         left_col = BoxLayout(orientation='horizontal', size_hint_x=0.25)
         self.heart_label = Label(text="❤️", font_size='40sp', halign='center', valign='middle', font_name=EMOJI_FONT)
@@ -506,21 +466,19 @@ class ECGApp(App):
         top_row.add_widget(right_col)
         root.add_widget(top_row)
 
-        # ====== 中部波形图 ======
+        # ====== 图表 ======
         self.graph = ECGPlotWidget(size_hint_y=0.6)
         root.add_widget(self.graph)
 
-        # ====== 底部日志 ======
+        # ====== 日志 ======
         self.advice_box = RichLogBox(size_hint_y=0.25)
-        self.advice_box.text = f"{E('💡')} 系统核心引擎启动，连接协议寻址中...\n(注：请确保单片机电极片已可靠粘连皮肤)"
+        self.advice_box.text = f"{E('💡')} 系统核心引擎启动...\n(注：请确保单片机电极片已粘连皮肤并点击诊断)"
         root.add_widget(self.advice_box)
 
         Clock.schedule_interval(self.update_ui, 0.5)
         self.heart_anim_event = Clock.schedule_interval(self.animate_heart, 0.8)
 
-        self.hw_thread = HardwareThread(self.on_serial_data, self.update_conn_ui)
-        self.hw_thread.start()
-
+        self.hw_thread = None
         self.csv_manager = CSVDataManager()
 
         return root
@@ -530,19 +488,16 @@ class ECGApp(App):
 
     def on_serial_data(self, ecg_val, bpm_val, hrv_val, rhythm_str):
         self.last_valid_data_time = time.time()
-
-        # 【关键改动】这里获取滤波后的干净值
         clean_ecg = self.graph.push_data(ecg_val)
 
-        # 将干净值录入 CSV (这就是你想要的“移动端测到的数据”)
         if clean_ecg is not None and self.diag_status == 'RUNNING':
             self.csv_manager.save_waveform(clean_ecg)
 
+        # 如果心跳有数字，就把值存进去；如果是Wait就跟着置空
         if bpm_val > 0:
             self.current_bpm = bpm_val
             self.current_hrv = hrv_val
-            if rhythm_str != "Wait":
-                self.current_rhythm = rhythm_str
+        self.current_rhythm = rhythm_str  # 实时贴合同步硬件标签
 
         if self.diag_status != 'IDLE':
             self.graph.display_mode = 'WAVE'
@@ -565,6 +520,34 @@ class ECGApp(App):
         self.heart_label.color = get_color_from_hex('#e74c3c')
 
     def start_manual_diagnosis(self, instance):
+        if platform == 'android' and not getattr(self, 'permission_granted', False):
+            from android.permissions import request_permissions
+            request_permissions([
+                "android.permission.BLUETOOTH_CONNECT",
+                "android.permission.BLUETOOTH_SCAN",
+                "android.permission.ACCESS_FINE_LOCATION"
+            ], self.on_permission_result)
+            return
+
+        self._start_diag_process()
+
+    def on_permission_result(self, permissions, grants):
+        if all(grants):
+            self.permission_granted = True
+            Clock.schedule_once(lambda dt: self._start_diag_process(), 0)
+        else:
+            self.advice_box.text += f"\n{E('❌')} 【需允许全部权限才能连接】"
+
+    def _start_diag_process(self):
+        if self.hw_thread is None or not self.hw_thread.is_alive():
+            self.hw_thread = HardwareThread(self.on_serial_data, self.update_conn_ui)
+            self.hw_thread.start()
+
+        # 【核心拦截 2】：点开始时，清空之前的一切状态！
+        self.current_bpm = 0
+        self.current_hrv = 0
+        self.current_rhythm = "Wait"
+
         self.diag_status = 'PREPARING'
         self.prep_countdown = 6
         self.btn_diag.text = "消解杂波中..."
@@ -578,8 +561,8 @@ class ECGApp(App):
         self.last_valid_data_time = time.time()
 
         self.advice_box.text = (
-            "【贴片平复期】侦测探头已唤醒。受电极接触与坐姿影响，前几秒数值易漂移。\n"
-            f"   {E('👉')} 请保持深呼吸并贴紧皮肤，静候 6 秒消除物理干扰。"
+            "【贴片平复期】侦测探头已唤醒。受贴片接触影响，前几秒数值易漂移。\n"
+            f"   {E('👉')} 请保持深呼吸并确实将电极粘死在皮肤上！静候 6 秒..."
         )
 
     def update_ui(self, dt):
@@ -598,22 +581,20 @@ class ECGApp(App):
             self.graph.display_mode = 'FLAT'
 
             if self.diag_status in ['PREPARING', 'RUNNING']:
-                self.advice_box.text = (
-                    f"{E('⚠️')}【检测中断警告：链路静默】\n"
-                    "未侦测到实时硬件波形！请确认：\n"
-                    "1. 连接线是否插稳，COM/蓝牙 通讯端是否被占用。\n"
-                    "2. 传感器导联金属片是否完全贴紧肌肤导电。"
-                )
+                self.advice_box.text = f"{E('⚠️')} 失去硬件连接，链路中断。"
                 self.diag_status = 'IDLE'
                 self.btn_diag.disabled = False
-                self.btn_diag.text = "重置以打通硬体链路"
-                self.status_label.text = "状态: 失去硬件连接响应"
+                self.btn_diag.text = "重置链路"
+                self.status_label.text = "状态: 失去连接"
                 self.status_label.color = get_color_from_hex('#e74c3c')
             return
         else:
             if self.current_bpm > 0:
                 self.bpm_label.text = str(self.current_bpm)
                 self.hrv_label.text = f"HRV: {self.current_hrv} ms"
+            else:
+                self.bpm_label.text = "0"
+                self.hrv_label.text = "HRV: 0 ms"
 
         if self.diag_status == 'PREPARING':
             self.prep_countdown -= 0.5
@@ -622,61 +603,65 @@ class ECGApp(App):
             else:
                 self.diag_status = 'RUNNING'
                 self.valid_data_ticks = 0
-                self.rhythm_history.clear()
                 self.status_label.text = "状态: 纯净数据抽样中..."
                 self.status_label.color = get_color_from_hex('#D35400')
-                self.advice_box.text = (
-                    "【硬件握手成功】波形稳定入轨，启动内源测录。\n"
-                    f"   {E('👉')} 请持续保持平稳状态，等待进度条走完。"
-                )
             return
 
         if self.diag_status == 'DONE': return
 
+        # =======================================================
+        # 【全场最关键的防御塔：空载阻挡器】
+        # 只要你没贴片，或者心率为0，或者单片机发的是 "Wait"，进度条就永远不准动！
+        # =======================================================
+        if self.current_bpm == 0 or self.current_rhythm == "Wait":
+            self.advice_box.text = f"{E('⚠️')}【传感器脱落/未通电】暂未检测到有效人体真实心跳，评测模块已自动阻断并挂起！\n请务必贴紧电极片等待波形就绪..."
+            # 直接返回，下面的“倒数计时”不涨了，锁死在此处！
+            return
+
+            # 防过载过滤
         if self.current_bpm > 180:
-            self.advice_box.text = f"{E('⚠️')}【高杂波阻滞】捕捉到过激杂音源，数据进度挂起等待排空..."
+            self.advice_box.text = f"{E('⚠️')}捕捉到超频杂音源，数据进度被迫中止..."
             self.valid_data_ticks = max(0, self.valid_data_ticks - 1)
             return
 
+        # 真正有活人波形了，进度条才涨
         self.valid_data_ticks += 0.5
-        if int(self.valid_data_ticks) > len(self.rhythm_history):
-            self.rhythm_history.append(self.current_rhythm)
 
         if self.valid_data_ticks <= 10:
             prog = int((self.valid_data_ticks / 10.0) * 100)
             self.status_label.text = f"智能深部析出... {prog}%"
+            self.advice_box.text = (
+                "【硬件波形入轨】有效体征验证通过，启动内源测录。\n" f"   {E('👉')} 请保持平稳，等待进度条读满。")
             return
 
-        afib = self.rhythm_history.count("AFib")
-        pvc = self.rhythm_history.count("PVC")
+        # 读取最终实打实的硬件字串结果
+        final_hw_result = self.current_rhythm
 
-        if afib >= 3:
+        if final_hw_result == "AFib":
             self.status_label.text = "诊断结果: 疑似房颤 (AFib)"
             self.status_label.color = get_color_from_hex('#c0392b')
-            self.advice_box.text = f"{E('❌')} 【结论快照】捕捉到严重不规律的RR间期序列，强烈疑似心房颤动！"
-            self.show_alert_popup("⚠️ 高危心电异常预警",
-                                  "系统检测到连续的不规则 RR 间期（疑似房颤），\n请立刻持设备就诊查验！")
+            self.advice_box.text = f"{E('❌')} 【发现异常】根据你的硬件芯片实报，疑似心房颤动！"
+            self.show_alert_popup("⚠️ 高危异常预警", "检测到严重不规则间期序列（疑似房颤），\n请立刻持设备就诊查验！")
 
-        elif pvc >= 3:
+        elif final_hw_result == "PVC":
             self.status_label.text = "诊断结果: 室性早搏 (PVC)"
             self.status_label.color = get_color_from_hex('#d35400')
-            self.advice_box.text = f"{E('⚠️')} 【结论快照】捕捉到部分导联的代偿间歇偏移，疑似室性期前收缩(PVC)。"
-            self.show_alert_popup("⚠️ 注意: 节律异常",
-                                  "捕捉到提前漏跳的代偿间歇（早搏），\n偶尔发生属正常现象，若频繁出现请注意休息。")
+            self.advice_box.text = f"{E('⚠️')} 【发现偏离】根据你的硬件芯片实报，疑似室性早搏(PVC)。"
+            self.show_alert_popup("⚠️ 节律异常警告", "捕捉到代偿间歇（室性早搏），\n偶尔漏跳属正常现象，频繁出现请休息。")
 
         else:
             self.status_label.text = "诊断结果: 正常心律"
             self.status_label.color = get_color_from_hex('#27ae60')
-            self.advice_box.text = f"{E('✅')} 【结论快照】心房心室起搏平稳健康，周期排查完毕，系统解锁进入恒向守护。"
+            self.advice_box.text = f"{E('✅')} 【结论快照】波动幅度健康正常，起搏信号排查完毕。"
 
         self.diag_status = 'DONE'
         self.btn_diag.disabled = False
-        self.btn_diag.text = "复位并开启全新捕获"
+        self.btn_diag.text = "复位开启全新捕获"
 
     def trigger_sms_alert(self, msg):
         now = time.time()
         if now - self.last_sms_time > 30:
-            self.advice_box.text += f"\n\n{E('🔔')} 【系统分发】异常心动信号已通过后台基站通报管理端。"
+            self.advice_box.text += f"\n\n{E('🔔')} 【系统分发】异常信号已通报。"
             self.last_sms_time = now
 
     def show_alert_popup(self, title_text, msg_text):
@@ -684,10 +669,8 @@ class ECGApp(App):
         lbl = Label(text=msg_text, font_name=FONT_NAME, font_size='18sp',
                     color=(1, 1, 1, 1), halign='center', valign='middle')
         lbl.bind(size=lbl.setter('text_size'))
-
-        btn = Button(text="确认并关闭", size_hint_y=0.4, font_name=FONT_NAME,
+        btn = Button(text="确认闭环", size_hint_y=0.4, font_name=FONT_NAME,
                      font_size='18sp', bold=True, background_color=get_color_from_hex('#e74c3c'))
-
         box.add_widget(lbl)
         box.add_widget(btn)
 
@@ -698,7 +681,8 @@ class ECGApp(App):
         popup.open()
 
     def on_stop(self):
-        self.hw_thread.stop()
+        if self.hw_thread:
+            self.hw_thread.stop()
 
 
 if __name__ == '__main__':
