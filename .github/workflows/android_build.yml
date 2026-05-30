@@ -1,64 +1,101 @@
-name: Build APK with Buildozer
+name: Build Android APK with Buildozer
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # 允许在 Actions 页面手动点击触发打包
+    branches: [ main, master ]  # 当主分支有代码提交更改时触发打包
+  workflow_dispatch:            # 允许你在 GitHub Actions 页面手动点击按钮触发打包
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4  # 升级至最新的 v4 稳定版
+    runs-on: ubuntu-22.04
 
-      - name: Install system dependencies
+    steps:
+      # Step 1: 拉取你的代码
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 2: 安装 JDK 17 (Buildozer 构建 Android 所需)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Step 3: 配置 Python 3.9 环境
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # Step 4: 安装 Ubuntu 系统级别的打包所需依赖
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-pip \
-            python3-setuptools \
-            openjdk-11-jdk \
+            build-essential \
             git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0-dev \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            libsqlite3-dev \
+            sqlite3 \
+            bzip2 \
+            libbz2-dev \
+            libssl-dev \
+            openssl \
+            libgdbm-dev \
+            libgdbm-compat-dev \
+            liblzma-dev \
+            libreadline-dev \
+            uuid-dev \
+            libffi-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
             zip \
             unzip \
-            libssl-dev \
-            libffi-dev \
-            build-essential \
-            libsqlite3-dev \
-            wget \
-            curl \
-            cmake \
             autoconf \
-            automake \
             libtool \
-            pkg-config
+            pkg-config \
+            cmake \
+            ninja-build
 
-      - name: Install Python dependencies
+      # Step 5: 依次显式安装 Buildozer 和 pythonforandroid，解决 ModuleNotFoundError 核心报错
+      - name: Install Buildozer & Python-for-Android
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install --upgrade buildozer cython virtualenv
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade virtualenv cython
+          python -m pip install buildozer
+          python -m pip install pythonforandroid==2024.8.25 # 锁定稳定版本，防止寻址失败
 
-      - name: Fix directory issue (Ensure p4a exists before clean)
+      # Step 6: 验证依赖库是否已完全跑通
+      - name: Verify Toolchain
         run: |
-          mkdir -p .buildozer/android/platform/python-for-android
+          python -c "import pythonforandroid; print('✅ p4a successfully installed at version:', pythonforandroid.__version__)"
+          which buildozer
+          buildozer --version
 
-      - name: Clean Buildozer environment
-        run: buildozer android clean
+      # Step 7: 清理旧缓存并开始执行 Buildozer 打包编译
+      - name: Run Buildozer Debug (Build APK)
+        run: |
+          # 确保临时编译生成的缓存是完全干净的
+          rm -rf .buildozer/
+          # 开始打包 (第一次运行预计耗时 10~20 分钟下载 SDK 与 NDK)
+          buildozer android debug
 
-      - name: Update Android platform and dependencies
-        run: buildozer -v android update
-
-      - name: Build APK debug
-        run: buildozer -v android debug
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4  # 升级至最新的 v4，彻底解决破坏性废弃报错
+      # Step 8: 将最终生成的 APK 上传至 GitHub artifacts(产物)，方便直接下载
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: ECG-App-Debug-APK
           path: bin/*.apk
