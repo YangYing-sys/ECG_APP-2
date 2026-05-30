@@ -21,7 +21,7 @@ version = 1.0.0
 # (list) Application requirements
 # 注意：你的代码导入了 numpy, serial, jnius。
 # android 是 jnius 正常运行所必需的依赖，pyapi 需要 pyserial 支撑。
-requirements = python3,kivy==2.3.0,numpy==1.26.4,pyserial,pyjnius
+requirements = python3,kivy==2.3.0,numpy==v1.26.4,pyserial,pyjnius
 
 # (list) Supported orientations (屏幕朝向：因为有比较宽的心电图，推荐竖屏或跟随系统)
 orientation = portrait
