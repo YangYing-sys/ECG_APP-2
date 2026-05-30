@@ -58,13 +58,13 @@ jobs:
             libncursesw5-dev \
             libtinfo5
 
-      # Step 5: 依次显式安装 Buildozer 和 pythonforandroid，解决 ModuleNotFoundError 核心报错
+      # Step 5: 依次显式安装 Buildozer 和 python-for-android
       - name: Install Buildozer & Python-for-Android
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade virtualenv cython
           python -m pip install buildozer
-          python -m pip install pythonforandroid==2024.8.25 # 锁定稳定版本，防止寻址失败
+          python -m pip install python-for-android
 
       # Step 6: 验证依赖库是否已完全跑通
       - name: Verify Toolchain
