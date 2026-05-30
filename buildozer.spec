@@ -44,7 +44,7 @@ android.api = 33
 android.accept_sdk_license = True
 
 # (int) Minimum API your APK will support.
-android.minapi = 21
+android.minapi = 24
 
 # (str) Android NDK version to use (Buildozer 推荐对应 25b/25c 以兼容 numpy 编译)
 android.ndk = 25b
