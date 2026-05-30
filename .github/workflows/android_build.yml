@@ -15,7 +15,7 @@ jobs:
     
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # 升级至最新的 v4 稳定版
 
       - name: Install system dependencies
         run: |
@@ -42,12 +42,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          # 安装新版 buildozer 和 cython
           pip3 install --upgrade buildozer cython virtualenv
 
       - name: Fix directory issue (Ensure p4a exists before clean)
         run: |
-          # 规避某些 buildozer 版本 clean 时找不到目录报错的问题
           mkdir -p .buildozer/android/platform/python-for-android
 
       - name: Clean Buildozer environment
@@ -60,7 +58,7 @@ jobs:
         run: buildozer -v android debug
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 升级至最新的 v4，彻底解决破坏性废弃报错
         with:
           name: app-debug-apk
           path: bin/*.apk
