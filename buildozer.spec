@@ -55,7 +55,7 @@ android.logcat = True
 # (str) Android entry point (你的入口文件如果是 demo4.py，在此处将它定义为入口启动文件名)
 # 🚨 注意：Buildozer 原生要求入口必须叫 main.py。建议将你的 demo4.py 在仓库里重命名为 main.py！
 # 如果已重命名为 main.py，下面这行可以保持默认；如果是 demo4.py，请将这里的值改为 demo4
-android.entrypoint = demo4
+android.entrypoint = main
 
 # ---------------------------------------------
 # 构建选项
