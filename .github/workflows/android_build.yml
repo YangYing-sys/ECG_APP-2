@@ -27,26 +27,21 @@ jobs:
         with:
           python-version: '3.9'
 
-      # Step 4: 安装 Ubuntu 系统级别的打包所需依赖
+      # Step 4: 安装 Ubuntu 系统级别的打包所需依赖 (移除产生冲突的本机多媒体库)
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
+            zip \
+            unzip \
+            autoconf \
+            libtool \
+            pkg-config \
+            cmake \
+            ninja-build \
             zlib1g-dev \
-            libgstreamer1.0-dev \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
             libsqlite3-dev \
             sqlite3 \
             bzip2 \
@@ -61,14 +56,7 @@ jobs:
             libffi-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo5 \
-            zip \
-            unzip \
-            autoconf \
-            libtool \
-            pkg-config \
-            cmake \
-            ninja-build
+            libtinfo5
 
       # Step 5: 依次显式安装 Buildozer 和 pythonforandroid，解决 ModuleNotFoundError 核心报错
       - name: Install Buildozer & Python-for-Android
