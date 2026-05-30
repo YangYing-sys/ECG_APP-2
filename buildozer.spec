@@ -1,63 +1,71 @@
 [app]
 
-# (str) 你的 App 名字
-title = AI ECG Monitor
+# 应用名称
+title = ECG Warning App
 
-# (str) 包名（小写，建议用这个名，不容易冲突）
-package.name = aiecgmonitor
+# 包名
+package.name = ecgmonitor
 
-# (str) 组织名
-package.domain = org.ecg
+# 包域名
+package.domain = org.yangying
 
-# (str) 源代码所在目录
+# 源码目录
 source.dir = .
 
-# (list) 包含的文件后缀 (必须包含 ttf，因为你代码里用了中文字体和表情包字体)
-source.include_exts = py,png,jpg,kv,atlas,ttf
+# 包含的文件类型
+source.include_exts = py,png,jpg,jpeg,kv,atlas,ttf,csv
 
-# (list) 你的代码里 import 的所有库（最关键的一行）
-# 包括了：python3, kivy, numpy, pyserial(名写为serial), pyjnius(用于安卓底层调用)
-requirements = python3,kivy==2.3.0,numpy,pyserial,pyjnius
+# 版本号
+version = 1.0.0
 
-# (str) 屏幕方向
+# Python 依赖
+# 重点：
+# 1. numpy 不要写 v1.26.4，要写 1.26.4
+# 2. 你的代码用了 android.permissions，所以必须加 android
+# 3. 你的代码顶部用了 serial，所以必须有 pyserial
+# 4. 你的代码用了 jnius，所以必须有 pyjnius
+requirements = python3,kivy,numpy==1.26.4,pyserial,pyjnius,android
+
+# 屏幕方向
 orientation = portrait
 
-# ----------------------------------
+# ---------------------------------------------
 # Android 配置
-# ----------------------------------
+# ---------------------------------------------
 
-# (bool) 是否接受 SDK 协议 (GitHub 打包必填 True)
-android.accept_sdk_license = True
+# Android 权限
+# 建议用短权限名，Buildozer 会自动生成完整 android.permission.xxx
+android.permissions = BLUETOOTH, BLUETOOTH_ADMIN, BLUETOOTH_CONNECT, BLUETOOTH_SCAN, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
-# (int) 目标安卓 API 级别
+# 目标 Android API
 android.api = 33
 
-# (int) 最低支持安卓版本
-android.minapi = 21
+# 自动接受 SDK license
+android.accept_sdk_license = True
 
-# (list) 你的项目申请的权限（根据你的代码：存CSV数据 + 串口通信/蓝牙）
-# 包含了：读写存储、互联网、蓝牙、精确定位（安卓蓝牙搜寻必须）
-android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET, BLUETOOTH, BLUETOOTH_ADMIN, ACCESS_FINE_LOCATION
+# 最低 API
+android.minapi = 24
 
-# (list) 包含的服务（如果有） - 无
+# NDK 版本
+android.ndk = 25b
 
-# (str) 安卓架构 (建议选 arm64-v8a 最适配现代手机，构建也快)
+# 架构，华为 MatePad Pro 11 用 arm64-v8a 没问题
 android.archs = arm64-v8a
 
-# (bool) 允许跳过更新
-android.skip_update = False
+# 开启 logcat
+android.logcat = True
 
-# (str) 这里的设置可以防止某些串口库报错
-android.meta_data = com.google.android.gms.version=@integer/google_play_services_version
+# 不要写 android.entrypoint
+# Buildozer 默认寻找 main.py
+# 所以请确保你的入口文件叫 main.py
+# android.entrypoint = main
 
-# ----------------------------------
-# Buildozer 运行配置
-# ----------------------------------
+# ---------------------------------------------
+# Buildozer 配置
+# ---------------------------------------------
 
 [buildozer]
 
-# 日志级别
 log_level = 2
 
-# 警告级别
-warn_on_root = 0
+warn_on_root = 1
