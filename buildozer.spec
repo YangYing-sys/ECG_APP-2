@@ -1,14 +1,14 @@
 [app]
 
-title = 心电预警系统
+title = AI辅助心电预警系统
 package.name = ai_ecg_alert
-package.domain = org.ecg
+package.domain = org.yourname
 
 source.include_exts = py,png,jpg,kv,ttf,json
 
 requirements = python3,kivy,numpy,pyserial
 
-entrypoint = main.py
+entrypoint = demo4.py
 
 orientation = portrait
 
